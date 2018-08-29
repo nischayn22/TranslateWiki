@@ -77,13 +77,11 @@ class AutoTranslate {
 			$rtrim = substr( $ltrimmed, strlen( $rtrimmed ), strlen( $ltrimmed ) - strlen( $rtrimmed ) );
 		}
 
-		$md5 = md5( $rtrimmed );
-
 		# The target language
 		$target = $this->translateTo;
 
 		$translated_string = '';
-		$cache = TranslationCache::getCache( $md5, $target );
+		$cache = TranslationCache::getCache( $rtrimmed, $target );
 		if ( $cache ) {
 			$translated_string = $cache;
 		} else {
