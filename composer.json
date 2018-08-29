@@ -1,0 +1,21 @@
+{
+	"name": "mediawiki/translate-wiki",
+	"type": "mediawiki-extension",
+	"description": "A MediaWiki extension that helps you translate a wiki from one language to another.",
+	"keywords": [
+		"Translate",
+		"Wiki",
+		"MediaWiki"
+	],
+	"homepage": "https://www.mediawiki.org/wiki/Extension:TranslateWiki",
+	"license": "GPL-2.0-or-later",
+	"authors": [
+		{
+			"name": "Nischay Nahata",
+			"role": "Developer"
+		}
+	],
+	"require": {
+		"google/cloud-translate": "^1.2"
+	}
+}

@@ -1,0 +1,21 @@
+{
+	"name": "TranslateWiki",
+	"version": "1.0",
+	"author": "Nischayn22",
+	"url": "https://www.mediawiki.org/wiki/Extension:TranslateWiki",
+	"AutoloadClasses": {
+		"AutoTranslate": "includes/AutoTranslate.php",
+		"TranslateWikiHooks": "TranslateWiki.hooks.php",
+		"TranslationCache": "includes/TranslationCache.php"
+	},
+	"config": {
+		"TranslateWikiNamespaces": [ 0 ],
+		"TranslateWikiLanguages": [ "en" ]
+	},
+	"Hooks": {
+		"LoadExtensionSchemaUpdates": [
+			"TranslateWikiHooks::onLoadExtensionSchemaUpdates"
+		]
+	},
+	"manifest_version": 1
+}
