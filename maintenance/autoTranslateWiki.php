@@ -31,11 +31,12 @@ class TranslateWiki extends Maintenance {
 				$autoTranslate = new AutoTranslate( $lang );
 				reset( $res );
 				foreach( $res as $row ) {
-					$autoTranslate->translateTitle( $row->page_id );
+					$translated_title = $autoTranslate->translateTitle( $row->page_id );
+					echo "Translated title:" . $row->page_title . " to lang:" . $lang . " as ". $translated_title ."\n";
 				}
 				reset( $res );
 				foreach( $res as $row ) {
-					echo "Translating title:" . $row->page_title . " to lang:" . $lang . "\n";
+					echo "Translating contents of page:" . $row->page_title . " to lang:" . $lang . "\n";
 					$autoTranslate->translate( $row->page_id );
 				}
 			}
