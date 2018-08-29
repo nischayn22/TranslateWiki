@@ -40,7 +40,7 @@ class AutoTranslate {
 
 	private function translateInternalLink( $link_str ) {
 		$link_parts = explode( '|', $link_str );
-		$translated_link = $link_parts[0];
+		$translated_link = $this->translateText( $link_parts[0] );
 
 		if ( count( $link_parts ) == 2 ) {
 			return $translated_link . '|' . $this->translateText( $link_parts[1] );
