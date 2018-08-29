@@ -81,7 +81,7 @@ class SpecialApproveTranslations extends SpecialPage {
 			Html::element( 'input', [ 'name' => 'ns', 'value' => $namespace, 'type' => 'hidden' ] ) .
 			Html::element( 'input', [ 'name' => 'lang', 'value' => $target_lang, 'type' => 'hidden' ] ) .
 			Html::label( "Select Page","", array( "for" => "page" ) ) . "<br>" .
-			Html::openElement( 'select', array( "id" => "page", "name" => "page" ) )
+			Html::openElement( 'select', array( "id" => "page", "name" => "page", "style" => "width:100%;" ) )
 		);
 
 		$dbr = wfGetDB( DB_SLAVE );
@@ -136,12 +136,12 @@ class SpecialApproveTranslations extends SpecialPage {
 				<div>
 					<div style="float:left;width:45%;height:300px;">
 						<h4>'. $title .'</h4>
-						<textarea disabled>' . $content . '</textarea>
+						<textarea style="height:250px;" disabled>' . $content . '</textarea>
 					</div>
 					<div style="float:left;margin-left:3%;margin-right:3%;border-left: 2px solid grey;height: 300px;"></div>
 					<div style="float:left;width:45%;height:300px;">
 						<h4>'. $translated_title .'</h4>
-						<textarea disabled>' . $translated_content . '</textarea>
+						<textarea style="height:250px;" disabled>' . $translated_content . '</textarea>
 					</div>
 				</div>
 			' );
