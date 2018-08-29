@@ -19,7 +19,7 @@
 	},
 	"config": {
 		"TranslateWikiNamespaces": [ 0 ],
-		"TranslateWikiLanguages": [ "en" ]
+		"TranslateWikiLanguages": []
 	},
 	"Hooks": {
 		"LoadExtensionSchemaUpdates": [
