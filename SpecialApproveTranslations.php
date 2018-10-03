@@ -70,6 +70,8 @@ class SpecialApproveTranslations extends SpecialPage {
 			return;
 		}
 
+		$out->addHTML( '<i>Note: You can also translate all pages in bulk using the maintenance script autoTranslateWiki.php </i>' );
+
 		$formOpts = [
 			'id' => 'select_page',
 			'method' => 'get',
@@ -80,7 +82,7 @@ class SpecialApproveTranslations extends SpecialPage {
 			Html::openElement( 'form', $formOpts ) . "<br>" .
 			Html::element( 'input', [ 'name' => 'ns', 'value' => $namespace, 'type' => 'hidden' ] ) .
 			Html::element( 'input', [ 'name' => 'lang', 'value' => $target_lang, 'type' => 'hidden' ] ) .
-			Html::label( "Select Page","", array( "for" => "page" ) ) . "<br>" .
+			Html::label( "Select a page:","", array( "for" => "page" ) ) . "<br>" .
 			Html::openElement( 'select', array( "id" => "page", "name" => "page", "style" => "width:100%;" ) )
 		);
 
@@ -100,7 +102,7 @@ class SpecialApproveTranslations extends SpecialPage {
 
 			$page_summary = '';
 			if ( $approved_translations == 0 && $unapproved_translations == 0 ) {
-				$page_summary = 'No Translations';
+				$page_summary = 'Not Translated';
 			} else if ( $unapproved_translations > 0 ) {
 				$page_summary = $unapproved_translations . ' Approvals Pending';
 			} else {
@@ -118,8 +120,8 @@ class SpecialApproveTranslations extends SpecialPage {
 		$out->addHTML( Html::closeElement( 'select' ) );
 
 		$out->addHTML(
-			"<br>" .
-			Html::submitButton( "Show Approvals", array() ) .
+			"<br><br>" .
+			Html::submitButton( "Auto Translate and Show Approvals", array() ) .
 			Html::closeElement( 'form' )
 		);
 		$current_page = $request->getVal( 'page' );
@@ -147,7 +149,7 @@ class SpecialApproveTranslations extends SpecialPage {
 			' );
 
 			$conds = array( 'page_id' => $current_page, "lang" => $target_lang );
-			$approved_translations = $dbr->select( TranslationCache::TABLE, 'id,translated_str', $conds, __METHOD__ );
+			$approved_translations = $dbr->select( TranslationCache::TABLE, 'id,md5,translated_str', $conds, __METHOD__ );
 
 			$formOpts = [
 				'id' => 'approve_translations',
@@ -162,15 +164,25 @@ class SpecialApproveTranslations extends SpecialPage {
 				Html::element( 'input', [ 'name' => 'lang', 'value' => $target_lang, 'type' => 'hidden' ] )
 			);
 			$out->addHTML(
-				'<h2>Translated Fragments</h2>
-				<span>Note: Edit translations to make corrections</span>
-				'
-				
+				'<h2>Translated Fragments</h2>'
 			);
+			$translation_fragments = $autoTranslate->getTranslationFragments();
 			foreach( $approved_translations as $translation ) {
-				$out->addHTML( 
-					Html::textarea( $translation->id, $translation->translated_str )
-				);
+				// If fragment doesn't exist in the current translation fragments its no longer used on this page.
+				if ( array_key_exists( $translation->md5, $translation_fragments ) ) {
+					$out->addHTML( '
+						<div>
+							<div style="float:left;width:45%;height:100px;">
+								<textarea disabled>' . $translation_fragments[ $translation->md5 ][0] . '</textarea>
+							</div>
+							<div style="float:left;margin-left:3%;margin-right:3%;border-left: 2px solid grey;height: 100px;"></div>
+							<div style="float:left;width:45%;height:100px;">
+								'. Html::textarea( $translation->id, $translation->translated_str ) .'
+							</div>
+						</div>
+						<br>
+					' );
+				}
 			}
 			$out->addHTML(
 				"<br>" .

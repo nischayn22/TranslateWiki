@@ -15,6 +15,8 @@ class AutoTranslate {
 
 	private $translateTo;
 
+	private $translationFragments = array();
+
 	function __construct( $translateTo ) {
 		global $wgTranslateWikiGtProjectId;
 
@@ -36,6 +38,10 @@ class AutoTranslate {
 		$revision = Revision::newFromPageId( $this->pageId );
 		$content = ContentHandler::getContentText( $revision->getContent( Revision::RAW ) );
 		return $this->translateWikiText( $content );
+	}
+
+	function getTranslationFragments() {
+		return $this->translationFragments;
 	}
 
 	private function translateInternalLink( $link_str ) {
@@ -101,6 +107,7 @@ class AutoTranslate {
 			$translated_string = $translation['text'];
 			TranslationCache::setCache( $this->pageId, $target, $rtrimmed, $translated_string );
 		}
+		$this->translationFragments[ md5( $rtrimmed ) ] = array( $rtrimmed, $translated_string );
 		return $ltrim . $translated_string . $rtrim;
 	}
 
