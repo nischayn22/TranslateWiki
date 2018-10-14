@@ -7,3 +7,4 @@ CREATE TABLE IF NOT EXISTS /*_*/translation_cache (
 	`approval_status` BOOLEAN DEFAULT 0,
 	`expiration` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) /*$wgDBTableOptions*/;
+ALTER TABLE `translation_cache` ADD UNIQUE `unique_index`(`md5`, `lang`);

@@ -8,12 +8,13 @@ use Google\Cloud\Translate\TranslateClient;
 **/
 
 class AutoTranslate {
-
 	private $pageId;
 
 	private $googleTranslateProjectId;
 
 	private $translateTo;
+
+	private $translationCache = null;
 
 	private $translationFragments = array();
 
@@ -24,10 +25,12 @@ class AutoTranslate {
 		$this->translateTo = $translateTo;
 	}
 
-
 	function translateTitle( $pageId ) {
         assert(!empty($pageId));
         $this->pageId = $pageId;
+		if ( $this->translationCache == null ) {
+			$this->translationCache = new TranslationCache( $pageId, $this->translateTo );
+		}
 		$title = Revision::newFromPageId( $this->pageId )->getTitle();
 		return $this->translateText( $title->getFullText() );
 	}
@@ -35,23 +38,20 @@ class AutoTranslate {
 	function translate( $pageId ) {
         assert(!empty($pageId));
         $this->pageId = $pageId;
+		if ( $this->translationCache == null ) {
+			$this->translationCache = new TranslationCache( $pageId, $this->translateTo );
+		}
 		$revision = Revision::newFromPageId( $this->pageId );
 		$content = ContentHandler::getContentText( $revision->getContent( Revision::RAW ) );
-		return $this->translateWikiText( $content );
+		$translated_content = $this->translateWikiText( $content );
+
+		$this->translationCache->deleteUnusedCache();
+
+		return $translated_content;
 	}
 
 	function getTranslationFragments() {
 		return $this->translationFragments;
-	}
-
-	private function translateInternalLink( $link_str ) {
-		$link_parts = explode( '|', $link_str );
-		$translated_link = $this->translateText( $link_parts[0] );
-
-		if ( count( $link_parts ) == 2 ) {
-			return $translated_link . '|' . $this->translateText( $link_parts[1] );
-		}
-		return $translated_link;
 	}
 
 	private function translateTemplateContents( $templateContent ) {
@@ -63,7 +63,38 @@ class AutoTranslate {
 		return $translatedTemplateContent;
 	}
 
-	private function translateText( $text ) {
+	private function postProcessFragment( $translated_content ) {
+		$dom = new DomDocument();
+		$dom->loadHTML( '<?xml encoding="utf-8" ?>' . $translated_content, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD );
+		// iterator_to_array is imp as the iterator is live and changing it will spoil the for loop
+		$span_items = iterator_to_array( $dom->getElementsByTagName('span') );
+		foreach( $span_items as $span_item ) {
+			$type = $span_item->getAttribute("class");
+			$link = $span_item->getAttribute("data-link");
+			$value = $span_item->nodeValue;
+			$new_element = null;
+			if ( $type == "link" ) {
+				$new_element = $dom->createElement( 'PLACEHOLDER', "[[$link|$value]]" );
+			} else if ( $type == "external_link" ) {
+				$new_element = $dom->createElement( 'PLACEHOLDER', "[$link $value]" );
+			} else if ( $type == "bolditalic" ) {
+				$new_element = $dom->createElement( 'PLACEHOLDER', "'''''$value'''''" );
+			} else if ( $type == "bold" ) {
+				$new_element = $dom->createElement( 'PLACEHOLDER', "'''$value'''" );
+			} else if ( $type == "italic" ) {
+				$new_element = $dom->createElement( 'PLACEHOLDER', "''value''" );
+			}
+			$span_item->parentNode->replaceChild( $new_element, $span_item );
+		}
+		$translated_content = $dom->saveHTML( $dom->documentElement );
+		$translated_content = str_replace( "<PLACEHOLDER>", "", $translated_content );
+		$translated_content = str_replace( "</PLACEHOLDER>", "", $translated_content );
+		$translated_content = str_replace( "<p>", "", $translated_content );
+		$translated_content = str_replace( "</p>", "", $translated_content );
+		return $translated_content;
+	}
+
+	private function translateText( $text, $isTitle = false ) {
 		if ( empty( trim( $text ) ) ) {
 			return $text;
 		}
@@ -87,7 +118,7 @@ class AutoTranslate {
 		$target = $this->translateTo;
 
 		$translated_string = '';
-		$cache = TranslationCache::getCache( $rtrimmed, $target );
+		$cache = $this->translationCache->getCache( $rtrimmed );
 		if ( $cache ) {
 			$translated_string = $cache;
 		} else {
@@ -101,13 +132,24 @@ class AutoTranslate {
 			# Translates some text into Russian
 			$translation = $translate->translate($rtrimmed, [
 				'target' => $target,
-				'format' => 'text'
+				'format' => 'html'
 			]);
 
 			$translated_string = $translation['text'];
-			TranslationCache::setCache( $this->pageId, $target, $rtrimmed, $translated_string );
+			$translated_string = $this->postProcessFragment( $translated_string );
+			if ( !$isTitle ) {
+				$this->translationCache->setCache( $target, $rtrimmed, $translated_string );
+			} else {
+				// save titles with their own pageid
+				$title = Title::newFromText( $rtrimmed );
+				if ( $title->exists() ) {
+					$page = new WikiPage( $title );
+					$pageId = $page->getId();
+					$this->translationCache->setCache( $target, $rtrimmed, $translated_string, $pageId );
+				}
+			}
 		}
-		$this->translationFragments[ md5( $rtrimmed ) ] = array( $rtrimmed, $translated_string );
+		$this->translationFragments[ md5( $rtrimmed ) ] = array( $this->postProcessFragment( $rtrimmed ), $translated_string );
 		return $ltrim . $translated_string . $rtrim;
 	}
 
@@ -120,6 +162,7 @@ class AutoTranslate {
 		$translated_content = '';
 
 		$len = strlen( $content );
+		$pre_cur_str = '';
 		$curr_str = '';
 		$state_deep = 0;
 		$state_arr = array( 'CONTENT' );
@@ -150,7 +193,7 @@ class AutoTranslate {
 			}
 
 			if ( $content[$i] == "'" && $content[$i+1] == "'" && $state_arr[$state_deep] == 'CONTENT' ) {
-				$translated_content .= $this->translateText( $curr_str );
+				$pre_cur_str = $curr_str;
 				$curr_str = '';
 				if ( $content[$i+2] == "'" && $content[$i+3] == "'" && $content[$i+4] == "'" ) {
 					$state_arr[] = 'BOLDITALICBEGIN';
@@ -171,8 +214,8 @@ class AutoTranslate {
 			}
 
 			if ( $content[$i] == "'" && $content[$i+1] == "'" && $state_arr[$state_deep] == 'BOLDITALICBEGIN' ) {
-				$translated_content .=  "'''''" . $this->translateWikiText( $curr_str ) . "'''''";
-				$curr_str = '';
+				$curr_str = $pre_cur_str . '<span class="bolditalic">'. $curr_str .'</span>';
+				$pre_cur_str = '';
 
 				array_pop( $state_arr );
 				$state_deep--;
@@ -180,8 +223,8 @@ class AutoTranslate {
 				continue;
 			}
 			if ( $content[$i] == "'" && $content[$i+1] == "'" && $state_arr[$state_deep] == 'BOLDBEGIN' ) {
-				$translated_content .=  "'''" . $this->translateWikiText( $curr_str ) . "'''";
-				$curr_str = '';
+				$curr_str = $pre_cur_str . '<span class="bold">'. $curr_str .'</span>';
+				$pre_cur_str = '';
 
 				array_pop( $state_arr );
 				$state_deep--;
@@ -189,8 +232,8 @@ class AutoTranslate {
 				continue;
 			}
 			if ( $content[$i] == "'" && $content[$i+1] == "'" && $state_arr[$state_deep] == 'ITALICBEGIN' ) {
-				$translated_content .=  "''" . $this->translateWikiText( $curr_str ) . "''";
-				$curr_str = '';
+				$curr_str = $pre_cur_str . '<span class="italic">'. $curr_str .'</span>';
+				$pre_cur_str = '';
 
 				array_pop( $state_arr );
 				$state_deep--;
@@ -267,8 +310,7 @@ class AutoTranslate {
 
 			if ( $content[$i] == '[' && $state_arr[$state_deep] == 'CONTENT' ) {
 
-				// Translate content accumulated so far
-				$translated_content .= $this->translateText( $curr_str );
+				$pre_cur_str = $curr_str;
 				$curr_str = '';
 
 				$state_arr[] = 'LINKBEGIN';
@@ -288,8 +330,13 @@ class AutoTranslate {
 			if ( $content[$i] == ']' && $state_arr[$state_deep] == 'LINKBEGIN' ) {
 				array_pop( $state_arr );
 				$state_deep--;
-				$translated_content .= "[" . $curr_str . "]";
-				$curr_str = '';
+				$parts = explode( " ", $curr_str );
+				if ( count( $parts ) == 2 ) {
+					$curr_str = $pre_cur_str . '<span class="external_link" data-link="'. $parts[0] .'">'. $parts[1] .'</span>';
+				} else {
+					$curr_str = $pre_cur_str . '<span class="external_link" data-link="'. $parts[0] .'"></span>';
+				}
+				$pre_cur_str = '';
 				continue;
 			}
 
@@ -303,8 +350,16 @@ class AutoTranslate {
 			if ( $content[$i] == ']' && $state_arr[$state_deep] == 'INTERNALLINKEND' ) {
 				array_pop( $state_arr );
 				$state_deep--;
-				$translated_content .= "[[" . $this->translateInternalLink( $curr_str ) . "]]";
-				$curr_str = '';
+
+				$link_parts = explode( '|', $curr_str );
+				$translated_link = $this->translateText( $link_parts[0], true );
+
+				if ( count( $link_parts ) == 2 ) {
+					$curr_str = $pre_cur_str . '<span class="link" data-link="'. trim( $translated_link ) .'">'. $link_parts[1] .'</span>';
+				} else {
+					$curr_str = $pre_cur_str . '<span class="link" data-link="'. trim( $translated_link ) .'">'. trim( $translated_link ) .'</span>';
+				}
+				$pre_cur_str = '';
 				continue;
 			}
 
@@ -446,7 +501,6 @@ class AutoTranslate {
 			$curr_str .= $content[$i];
 		}
 		$translated_content .= $this->translateText( $curr_str );
-
 		return $translated_content;
 	}
 

@@ -70,10 +70,17 @@ class SpecialApproveTranslations extends SpecialPage {
 			return;
 		}
 
+		$current_page = $request->getVal( 'page' );
+		$page_action = $request->getVal( 'page_action' );
+		if ( $page_action != '' ) {
+			$updated_count = $this->approveTranslations( $current_page, $target_lang );
+			$out->addHTML( '<div style="background-color:#28dc28;color:white;padding:5px;">'. $updated_count .' translations corrected.</div>' );
+		}
+
 		$out->addHTML( '<i>Note: You can also translate all pages in bulk using the maintenance script autoTranslateWiki.php </i>' );
 
 		$formOpts = [
-			'id' => 'select_page',
+			'id' => 'select_range',
 			'method' => 'get',
 			'action' => $this->getTitle()->getFullUrl()
 		];
@@ -82,6 +89,54 @@ class SpecialApproveTranslations extends SpecialPage {
 			Html::openElement( 'form', $formOpts ) . "<br>" .
 			Html::element( 'input', [ 'name' => 'ns', 'value' => $namespace, 'type' => 'hidden' ] ) .
 			Html::element( 'input', [ 'name' => 'lang', 'value' => $target_lang, 'type' => 'hidden' ] ) .
+			Html::label( "Select a range:","", array( "for" => "page_offset" ) ) . "<br>" .
+			Html::openElement( 'select', array( "id" => "page_offset", "name" => "page_offset", "style" => "width:100%;" ) )
+		);
+
+		$dbr = wfGetDB( DB_SLAVE );
+		$conds = [ 'page_namespace' => $namespace, 'page_is_redirect' => 0 ];
+		$pages_count = $dbr->selectField( 'page',
+			[ 'COUNT(*)' ],
+			$conds,
+			__METHOD__
+		);
+
+		$limit = 20;
+		$offsets = range( 0, $pages_count, $limit );
+		$current_offset = $request->getVal( 'page_offset' );
+		if ( $current_offset == '' ) {
+			$current_offset = 0;
+		}
+
+		foreach( $offsets as $offset ) {
+			$to_offset = min( $offset + $limit, $pages_count );
+			$out->addHTML(
+				Html::element(
+					'option', [
+						'selected' => $offset == $current_offset,
+						'value' => $offset,
+					], $offset . ' - ' . $to_offset
+				)
+			);
+		}
+
+		$out->addHTML( Html::closeElement( 'select' ) . "<br>" );
+		$out->addHTML(
+			"<br>" .
+			Html::submitButton( "Get Page List", array() ) .
+			Html::closeElement( 'form' )
+		);
+
+		$formOpts = [
+			'id' => 'select_range',
+			'method' => 'get',
+			'action' => $this->getTitle()->getFullUrl()
+		];
+		$out->addHTML(
+			Html::openElement( 'form', $formOpts ) . "<br>" .
+			Html::element( 'input', [ 'name' => 'ns', 'value' => $namespace, 'type' => 'hidden' ] ) .
+			Html::element( 'input', [ 'name' => 'lang', 'value' => $target_lang, 'type' => 'hidden' ] ) .
+			Html::element( 'input', [ 'name' => 'page_offset', 'value' => $current_offset, 'type' => 'hidden' ] ) .
 			Html::label( "Select a page:","", array( "for" => "page" ) ) . "<br>" .
 			Html::openElement( 'select', array( "id" => "page", "name" => "page", "style" => "width:100%;" ) )
 		);
@@ -91,8 +146,10 @@ class SpecialApproveTranslations extends SpecialPage {
 		$res = $dbr->select( 'page',
 			[ 'page_title', 'page_id' ],
 			$conds,
-			__METHOD__
+			__METHOD__,
+			array( 'OFFSET' => $current_offset, 'LIMIT' => $limit )
 		);
+
 		foreach ( $res as $row ) {
 			$conds = array( 'page_id' => $row->page_id, "lang" => $target_lang, "approval_status" => 1 );
 			$approved_translations = $dbr->selectField( TranslationCache::TABLE, 'COUNT(*)', $conds, __METHOD__ );
@@ -112,6 +169,7 @@ class SpecialApproveTranslations extends SpecialPage {
 			$out->addHTML(
 				Html::element(
 					'option', [
+						'selected' => $row->page_id == $current_page,
 						'value' => $row->page_id,
 					], $row->page_title . ' - ' . $page_summary
 				)
@@ -124,8 +182,8 @@ class SpecialApproveTranslations extends SpecialPage {
 			Html::submitButton( "Auto Translate and Show Approvals", array() ) .
 			Html::closeElement( 'form' )
 		);
-		$current_page = $request->getVal( 'page' );
 		if ( $current_page != '' ) {
+
 			$title = Revision::newFromPageId( $current_page )->getTitle()->getFullText();
 			$content = ContentHandler::getContentText( Revision::newFromPageId( $current_page )->getContent( Revision::RAW ) );
 
@@ -149,6 +207,7 @@ class SpecialApproveTranslations extends SpecialPage {
 			' );
 
 			$conds = array( 'page_id' => $current_page, "lang" => $target_lang );
+			$conds[] = $dbr->encodeExpiry( wfTimestampNow() ) . ' < expiration';
 			$approved_translations = $dbr->select( TranslationCache::TABLE, 'id,md5,translated_str', $conds, __METHOD__ );
 
 			$formOpts = [
@@ -161,7 +220,10 @@ class SpecialApproveTranslations extends SpecialPage {
 			$out->addHTML(
 				Html::openElement( 'form', $formOpts ) . "<br>" .
 				Html::element( 'input', [ 'name' => 'ns', 'value' => $namespace, 'type' => 'hidden' ] ) .
-				Html::element( 'input', [ 'name' => 'lang', 'value' => $target_lang, 'type' => 'hidden' ] )
+				Html::element( 'input', [ 'name' => 'lang', 'value' => $target_lang, 'type' => 'hidden' ] ) .
+				Html::element( 'input', [ 'name' => 'page_offset', 'value' => $current_offset, 'type' => 'hidden' ] ) .
+				Html::element( 'input', [ 'name' => 'page', 'value' => $current_page, 'type' => 'hidden' ] ) .
+				Html::element( 'input', [ 'name' => 'page_action', 'value' => 'approve_translations', 'type' => 'hidden' ] )
 			);
 			$out->addHTML(
 				'<h2>Translated Fragments</h2>'
@@ -190,5 +252,33 @@ class SpecialApproveTranslations extends SpecialPage {
 				Html::closeElement( 'form' )
 			);
 		}
+	}
+
+	function approveTranslations( $current_page, $target_lang ) {
+		$dbr = wfGetDB( DB_SLAVE );
+		$dbw = wfGetDB( DB_MASTER );
+		$updated_count = 0;
+
+		$request = $this->getRequest();
+		$conds = array( 'page_id' => $current_page, "lang" => $target_lang );
+		$conds[] = $dbr->encodeExpiry( wfTimestampNow() ) . ' < expiration';
+		$approved_translations = $dbr->select( TranslationCache::TABLE, 'id,md5,translated_str', $conds, __METHOD__ );
+		foreach( $approved_translations as $translation ) {
+			$approved_translation = $request->getVal( $translation->id );
+			if ( $approved_translation !== $translation->translated_str ) {
+				$updated_count++;
+			}
+			$data = array(
+				'translated_str' => $approved_translation,
+				'approval_status' => 1,
+			);
+			$dbw->update(
+				TranslationCache::TABLE,
+				$data,
+				array( 'id' => $translation->id ),
+				__METHOD__
+			);
+		}
+		return $updated_count;
 	}
 }
