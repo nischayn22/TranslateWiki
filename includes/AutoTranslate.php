@@ -10,7 +10,7 @@ use Google\Cloud\Translate\TranslateClient;
 class AutoTranslate {
 	private $pageId;
 
-	private $googleTranslateProjectId;
+	private $googleTranslateKeyFilePath;
 
 	private $translateTo;
 
@@ -19,9 +19,9 @@ class AutoTranslate {
 	private $translationFragments = array();
 
 	function __construct( $translateTo ) {
-		global $wgTranslateWikiGtProjectId;
+		global $googleTranslateKeyFilePath;
 
-		$this->googleTranslateProjectId = $wgTranslateWikiGtProjectId;
+		$this->googleTranslateKeyFilePath = $googleTranslateKeyFilePath;
 		$this->translateTo = $translateTo;
 	}
 
@@ -126,7 +126,7 @@ class AutoTranslate {
 			$projectId = $this->googleTranslateProjectId;
 
 			$translate = new TranslateClient([
-				'projectId' => $projectId
+				'keyFilePath' => $googleTranslateKeyFilePath
 			]);
 
 			# Translates some text into Russian
