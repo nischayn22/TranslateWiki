@@ -231,7 +231,10 @@ class SpecialApproveTranslations extends SpecialPage {
 			$translation_fragments = $autoTranslate->getTranslationFragments();
 			foreach( $approved_translations as $translation ) {
 				// If fragment doesn't exist in the current translation fragments its no longer used on this page.
-				if ( array_key_exists( $translation->md5, $translation_fragments ) ) {
+				if ( 
+					array_key_exists( $translation->md5, $translation_fragments ) && 
+					$translation_fragments[ $translation->md5 ][0] !== $translation->translated_str 
+				) {
 					$out->addHTML( '
 						<div>
 							<div style="float:left;width:45%;height:100px;">
