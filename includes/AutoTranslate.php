@@ -122,11 +122,9 @@ class AutoTranslate {
 		if ( $cache ) {
 			$translated_string = $cache;
 		} else {
-			# Your Google Cloud Platform project ID
-			$projectId = $this->googleTranslateProjectId;
 
 			$translate = new TranslateClient([
-				'keyFilePath' => $googleTranslateKeyFilePath
+				'keyFilePath' => $this->googleTranslateKeyFilePath
 			]);
 
 			# Translates some text into Russian
