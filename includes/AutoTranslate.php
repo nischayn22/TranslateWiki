@@ -357,7 +357,7 @@ class AutoTranslate {
 				if ( count( $link_parts ) == 2 ) {
 					$curr_str = $pre_cur_str . '<span class="link" data-link="'. trim( $translated_link ) .'">'. $link_parts[1] .'</span>';
 				} else {
-					$curr_str = $pre_cur_str . '<span class="link" data-link="'. trim( $translated_link ) .'"></span>';
+					$curr_str = $pre_cur_str . '<span class="link" data-link="'. trim( $translated_link ) .'">'. trim( $translated_link ) .'</span>';
 				}
 				$pre_cur_str = '';
 				continue;
