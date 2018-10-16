@@ -65,11 +65,12 @@ class AutoTranslate {
 
 	private function postProcessFragment( $translated_content ) {
 		$dom = new DomDocument();
-		$dom->loadHTML( '<?xml encoding="utf-8" ?>' . $translated_content, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD );
-		// iterator_to_array is imp as the iterator is live and changing it will spoil the for loop
-		$span_items = iterator_to_array( $dom->getElementsByTagName('span') );
-		foreach( $span_items as $span_item ) {
-			$type = $span_item->getAttribute("class");
+		$dom->loadHTML( '<?xml encoding="utf-8" ?><p>' . $translated_content . '</p>', LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD );
+
+		$span_items = $dom->getElementsByTagName('span');
+		while( $span_items->length ) {
+			$span_item = $span_items->item(0);
+ 			$type = $span_item->getAttribute("class");
 			$link = $span_item->getAttribute("data-link");
 			$value = $span_item->nodeValue;
 			$new_element = null;
