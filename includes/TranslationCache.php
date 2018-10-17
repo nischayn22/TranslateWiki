@@ -10,7 +10,7 @@ class TranslationCache {
 	private $pageId = 0;
 	private $translateTo = '';
 
-	function __construct( $pageId, $translateTo ) {
+	function __construct( $pageId, $translateTo, $shouldPurge = false ) {
 		$this->pageId = $pageId;
 		$this->translateTo = $translateTo;
 
@@ -25,7 +25,7 @@ class TranslationCache {
 			__METHOD__
 		);
 		foreach( $res as $row ) {
-			if ( strtotime( $row->expiration ) > wfTimestampNow() ) {
+			if ( $shouldPurge || strtotime( $row->expiration ) > wfTimestampNow() ) {
 				$dbw->delete(
 					self::TABLE,
 					array( 'id' => $row->id ),

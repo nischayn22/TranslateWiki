@@ -74,7 +74,7 @@ class SpecialApproveTranslations extends SpecialPage {
 		$page_action = $request->getVal( 'page_action' );
 		if ( $page_action != '' ) {
 			$updated_count = $this->approveTranslations( $current_page, $target_lang );
-			$out->addHTML( '<div style="background-color:#28dc28;color:white;padding:5px;">'. $updated_count .' translations corrected.</div>' );
+			$out->addHTML( '<div style="background-color:#28dc28;color:white;padding:5px;">'. $updated_count .' translations corrected. All approved.</div>' );
 		}
 
 		$out->addHTML( '<i>Note: You can also translate all pages in bulk using the maintenance script autoTranslateWiki.php </i>' );
@@ -180,6 +180,8 @@ class SpecialApproveTranslations extends SpecialPage {
 		$out->addHTML(
 			"<br><br>" .
 			Html::submitButton( "Auto Translate and Show Approvals", array() ) .
+			"<br><br>" .
+			Html::submitButton( "Re-translate and Show Approvals", array( 'name' => 'retranslate' ) ) .
 			Html::closeElement( 'form' )
 		);
 		if ( $current_page != '' ) {
@@ -187,9 +189,13 @@ class SpecialApproveTranslations extends SpecialPage {
 			$title = Revision::newFromPageId( $current_page )->getTitle()->getFullText();
 			$content = ContentHandler::getContentText( Revision::newFromPageId( $current_page )->getContent( Revision::RAW ) );
 
+			$shouldPurge = false;
+			if ( $request->getVal( 'retranslate' ) != '' ) {
+				$shouldPurge = true;
+			}
 			$autoTranslate = new AutoTranslate( $target_lang );
-			$translated_title = $autoTranslate->translateTitle( $current_page );
-			$translated_content = $autoTranslate->translate( $current_page );
+			$translated_title = $autoTranslate->translateTitle( $current_page, $shouldPurge );
+			$translated_content = $autoTranslate->translate( $current_page, $shouldPurge );
 
 			$out->addHTML( '
 				<h2>Wikitext Preview</h2>
@@ -231,10 +237,7 @@ class SpecialApproveTranslations extends SpecialPage {
 			$translation_fragments = $autoTranslate->getTranslationFragments();
 			foreach( $approved_translations as $translation ) {
 				// If fragment doesn't exist in the current translation fragments its no longer used on this page.
-				if ( 
-					array_key_exists( $translation->md5, $translation_fragments ) && 
-					$translation_fragments[ $translation->md5 ][0] !== $translation->translated_str 
-				) {
+				if ( array_key_exists( $translation->md5, $translation_fragments ) ) {
 					$out->addHTML( '
 						<div>
 							<div style="float:left;width:45%;height:100px;">

@@ -25,21 +25,21 @@ class AutoTranslate {
 		$this->translateTo = $translateTo;
 	}
 
-	function translateTitle( $pageId ) {
+	function translateTitle( $pageId, $shouldPurge = false ) {
         assert(!empty($pageId));
         $this->pageId = $pageId;
 		if ( $this->translationCache == null ) {
-			$this->translationCache = new TranslationCache( $pageId, $this->translateTo );
+			$this->translationCache = new TranslationCache( $pageId, $this->translateTo, $shouldPurge );
 		}
 		$title = Revision::newFromPageId( $this->pageId )->getTitle();
 		return $this->translateText( $title->getFullText() );
 	}
 
-	function translate( $pageId ) {
+	function translate( $pageId, $shouldPurge = false ) {
         assert(!empty($pageId));
         $this->pageId = $pageId;
 		if ( $this->translationCache == null ) {
-			$this->translationCache = new TranslationCache( $pageId, $this->translateTo );
+			$this->translationCache = new TranslationCache( $pageId, $this->translateTo, $shouldPurge );
 		}
 		$revision = Revision::newFromPageId( $this->pageId );
 		$content = ContentHandler::getContentText( $revision->getContent( Revision::RAW ) );
@@ -157,7 +157,6 @@ class AutoTranslate {
 	// $templateContent: true if $content provided is content inside a template and parameter names should not be translated
 
 	function translateWikiText( $content, $templateContent = false ) {
-		assert( !empty( $this->googleTranslateProjectId ) );
 		$translated_content = '';
 
 		$len = strlen( $content );
