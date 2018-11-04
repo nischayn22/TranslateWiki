@@ -63,7 +63,7 @@ class AutoTranslate {
 		return $translatedTemplateContent;
 	}
 
-	private function postProcessFragment( $translated_content ) {
+	private function postProcessFragment( $translated_content, $translate_titles = false ) {
 		$dom = new DomDocument();
 		$dom->loadHTML( '<?xml encoding="utf-8" ?><p>' . $translated_content . '</p>', LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD );
 
@@ -75,7 +75,12 @@ class AutoTranslate {
 			$value = $span_item->nodeValue;
 			$new_element = null;
 			if ( $type == "link" ) {
-				$new_element = $dom->createElement( 'PLACEHOLDER', "[[$link|$value]]" );
+				if ( $translate_titles ) {
+					$translated_link = $this->translateText( $link, true );
+					$new_element = $dom->createElement( 'PLACEHOLDER', "[[$translated_link|$value]]" );
+				} else {
+					$new_element = $dom->createElement( 'PLACEHOLDER', "[[$link|$value]]" );
+				}
 			} else if ( $type == "external_link" ) {
 				$new_element = $dom->createElement( 'PLACEHOLDER', "[$link $value]" );
 			} else if ( $type == "bolditalic" ) {
@@ -135,7 +140,7 @@ class AutoTranslate {
 			]);
 
 			$translated_string = $translation['text'];
-			$translated_string = $this->postProcessFragment( $translated_string );
+			$translated_string = $this->postProcessFragment( $translated_string, true );
 			if ( !$isTitle ) {
 				$this->translationCache->setCache( $target, $rtrimmed, $translated_string );
 			} else {
@@ -166,6 +171,13 @@ class AutoTranslate {
 		$state_arr = array( 'CONTENT' );
 
 		for ( $i = 0; $i < $len; $i++ ){
+
+			if ( ( $content[$i] == "*" || $content[$i] == "#" ) && $state_arr[$state_deep] == 'CONTENT' ) {
+				$translated_content .= $this->translateText( $curr_str );
+				$curr_str = '';
+				$translated_content .= $content[$i];
+				continue;
+			}
 
 			if ( $content[$i] == "<" && $content[$i+1] == "!" && $state_arr[$state_deep] == 'CONTENT' ) {
 				if ( $content[$i+2] == "-" && $content[$i+3] == "-" ) {
@@ -324,15 +336,13 @@ class AutoTranslate {
 			}
 
 			// External Link End
-			// No need to translate
 			if ( $content[$i] == ']' && $state_arr[$state_deep] == 'LINKBEGIN' ) {
 				array_pop( $state_arr );
 				$state_deep--;
-				$parts = explode( " ", $curr_str );
-				if ( count( $parts ) == 2 ) {
-					$curr_str = $pre_cur_str . '<span class="external_link" data-link="'. $parts[0] .'">'. $parts[1] .'</span>';
+				if ( ( $pos = strpos( $curr_str, " " ) ) !== FALSE ) { 
+					$curr_str = $pre_cur_str . '<span class="external_link" data-link="'. substr( $curr_str, 0, $pos ) .'">'. substr( $curr_str, $pos + 1 ) .'</span>';
 				} else {
-					$curr_str = $pre_cur_str . '<span class="external_link" data-link="'. $parts[0] .'"></span>';
+					$curr_str = $pre_cur_str . '<span class="external_link" data-link="'. $curr_str .'"></span>';
 				}
 				$pre_cur_str = '';
 				continue;
@@ -350,12 +360,11 @@ class AutoTranslate {
 				$state_deep--;
 
 				$link_parts = explode( '|', $curr_str );
-				$translated_link = $this->translateText( $link_parts[0], true );
 
 				if ( count( $link_parts ) == 2 ) {
-					$curr_str = $pre_cur_str . '<span class="link" data-link="'. trim( $translated_link ) .'">'. $link_parts[1] .'</span>';
+					$curr_str = $pre_cur_str . '<span class="link" data-link="'. trim( $link_parts[0] ) .'">'. $link_parts[1] .'</span>';
 				} else {
-					$curr_str = $pre_cur_str . '<span class="link" data-link="'. trim( $translated_link ) .'">'. trim( $translated_link ) .'</span>';
+					$curr_str = $pre_cur_str . '<span class="link" data-link="'. trim( $link_parts[0] ) .'">'. trim( $link_parts[0] ) .'</span>';
 				}
 				$pre_cur_str = '';
 				continue;

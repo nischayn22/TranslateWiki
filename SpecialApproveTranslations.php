@@ -12,7 +12,7 @@ class SpecialApproveTranslations extends SpecialPage {
 	/**
 	 */
 	public function execute( $par ) {
-		global $wgTranslateWikiNamespaces, $wgTranslateWikiLanguages;
+		global $wgTranslateWikiNamespaces, $wgTranslateWikiLanguages, $wgSyncWikis;
 
 		$this->setHeaders();
 		$request = $this->getRequest();
@@ -72,8 +72,9 @@ class SpecialApproveTranslations extends SpecialPage {
 
 		$current_page = $request->getVal( 'page' );
 		$page_action = $request->getVal( 'page_action' );
-		if ( $page_action != '' ) {
+		if ( $page_action == 'approve_translations' ) {
 			$updated_count = $this->approveTranslations( $current_page, $target_lang );
+			Hooks::run( 'TranslationsApproved', array( $current_page, $target_lang ) );
 			$out->addHTML( '<div style="background-color:#28dc28;color:white;padding:5px;">'. $updated_count .' translations corrected. All approved.</div>' );
 		}
 
@@ -186,7 +187,7 @@ class SpecialApproveTranslations extends SpecialPage {
 		);
 		if ( $current_page != '' ) {
 
-			$title = Revision::newFromPageId( $current_page )->getTitle()->getFullText();
+			$title = Revision::newFromPageId( $current_page )->getTitle();
 			$content = ContentHandler::getContentText( Revision::newFromPageId( $current_page )->getContent( Revision::RAW ) );
 
 			$shouldPurge = false;
@@ -197,16 +198,26 @@ class SpecialApproveTranslations extends SpecialPage {
 			$translated_title = $autoTranslate->translateTitle( $current_page, $shouldPurge );
 			$translated_content = $autoTranslate->translate( $current_page, $shouldPurge );
 
+			$syncWikiLinks = '';
+			foreach( $wgSyncWikis as $wgSyncWiki ) {
+				if ( $wgSyncWiki['translate_to'] == $target_lang ) {
+					$page_link = $wgSyncWiki['article_path'] .'/'. $translated_title;
+					$syncWikiLinks .= '<a target="_blank" href="'. $page_link .'">'. $page_link .'</a>';
+				}
+			}
+
 			$out->addHTML( '
 				<h2>Wikitext Preview</h2>
 				<div>
 					<div style="float:left;width:45%;height:300px;">
-						<h4>'. $title .'</h4>
+						<h4>'. $title->getFullText() .'</h4>
+						<a target="_blank" href="'. $title->getFullUrl() .'">'. $title->getFullUrl() .'</a>
 						<textarea style="height:250px;" disabled>' . $content . '</textarea>
 					</div>
 					<div style="float:left;margin-left:3%;margin-right:3%;border-left: 2px solid grey;height: 300px;"></div>
 					<div style="float:left;width:45%;height:300px;">
 						<h4>'. $translated_title .'</h4>
+						'. $syncWikiLinks .'
 						<textarea style="height:250px;" disabled>' . $translated_content . '</textarea>
 					</div>
 				</div>
@@ -254,7 +265,7 @@ class SpecialApproveTranslations extends SpecialPage {
 			}
 			$out->addHTML(
 				"<br>" .
-				Html::submitButton( "Approve All Translations", array() ) .
+				Html::submitButton( "Approve All Translations & Sync", array() ) .
 				Html::closeElement( 'form' )
 			);
 		}
