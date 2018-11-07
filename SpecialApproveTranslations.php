@@ -201,8 +201,8 @@ class SpecialApproveTranslations extends SpecialPage {
 			$syncWikiLinks = '';
 			foreach( $wgSyncWikis as $wgSyncWiki ) {
 				if ( $wgSyncWiki['translate_to'] == $target_lang ) {
-					$page_link = $wgSyncWiki['article_path'] .'/'. $translated_title;
-					$syncWikiLinks .= '<a target="_blank" href="'. $page_link .'">'. $page_link .'</a>';
+					$page_link = $wgSyncWiki['article_path'] .'/'. urlencode( str_replace( " ", "_", $translated_title ) );
+					$syncWikiLinks .= '<a target="_blank" href="'. $page_link .'">'. $translated_title .'</a>';
 				}
 			}
 
@@ -211,7 +211,7 @@ class SpecialApproveTranslations extends SpecialPage {
 				<div>
 					<div style="float:left;width:45%;height:300px;">
 						<h4>'. $title->getFullText() .'</h4>
-						<a target="_blank" href="'. $title->getFullUrl() .'">'. $title->getFullUrl() .'</a>
+						<a target="_blank" href="'. $title->getFullUrl() .'">'. $title->getText() .'</a>
 						<textarea style="height:250px;" disabled>' . $content . '</textarea>
 					</div>
 					<div style="float:left;margin-left:3%;margin-right:3%;border-left: 2px solid grey;height: 300px;"></div>
