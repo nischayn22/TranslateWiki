@@ -9,7 +9,11 @@ class TranslateWikiHooks {
 	 */
 	public static function onLoadExtensionSchemaUpdates( DatabaseUpdater $updater ) {
 		$updater->addExtensionTable( TranslationCache::TABLE,
-			__DIR__ . '/translation_cache.sql', true );
+			__DIR__ . '/includes/sql/translation_cache.sql', true );
+
+		$updater->addExtensionTable( TranslationCorrections::TABLE,
+			__DIR__ . '/includes/sql/translation_corrections.sql', true );
+
 		return true;
 	}
 }

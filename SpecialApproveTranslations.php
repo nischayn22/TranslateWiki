@@ -226,6 +226,7 @@ class SpecialApproveTranslations extends SpecialPage {
 			$conds = array( 'page_id' => $current_page, "lang" => $target_lang );
 			$conds[] = $dbr->encodeExpiry( wfTimestampNow() ) . ' < expiration';
 			$approved_translations = $dbr->select( TranslationCache::TABLE, 'id,md5,translated_str', $conds, __METHOD__ );
+			$translationCorrections = new TranslationCorrections( $target_lang );
 
 			$formOpts = [
 				'id' => 'approve_translations',
@@ -256,7 +257,7 @@ class SpecialApproveTranslations extends SpecialPage {
 							</div>
 							<div style="float:left;margin-left:3%;margin-right:3%;border-left: 2px solid grey;height: 100px;"></div>
 							<div style="float:left;width:45%;height:100px;">
-								'. Html::textarea( $translation->id, $translation->translated_str ) .'
+								'. Html::textarea( $translation->id, $translationCorrections->applyCorrections( $translation->translated_str ) ) .'
 							</div>
 						</div>
 						<br>

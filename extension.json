@@ -9,11 +9,14 @@
 		]
 	},
 	"SpecialPages": {
-		"ApproveTranslations": "SpecialApproveTranslations"
+		"ApproveTranslations": "SpecialApproveTranslations",
+		"TranslationCorrections": "SpecialTranslationCorrections"
 	},
 	"AutoloadClasses": {
 		"SpecialApproveTranslations": "SpecialApproveTranslations.php",
+		"SpecialTranslationCorrections": "SpecialTranslationCorrections.php",
 		"AutoTranslate": "includes/AutoTranslate.php",
+		"TranslationCorrections": "includes/TranslationCorrections.php",
 		"TranslateWikiHooks": "TranslateWiki.hooks.php",
 		"TranslationCache": "includes/TranslationCache.php"
 	},
