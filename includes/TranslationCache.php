@@ -25,7 +25,7 @@ class TranslationCache {
 			__METHOD__
 		);
 		foreach( $res as $row ) {
-			if ( $shouldPurge || strtotime( $row->expiration ) > wfTimestampNow() ) {
+			if ( $shouldPurge || strtotime( $row->expiration ) > wfTimestamp() ) {
 				$dbw->delete(
 					self::TABLE,
 					array( 'id' => $row->id ),
@@ -88,7 +88,7 @@ class TranslationCache {
 			'translated_str' => $translated_str,
 			'expiration' => $dbw->encodeExpiry( wfTimestamp( TS_MW, time() + $cache_expire ) )
 		);
-		$result = $dbw->insert( self::TABLE, $data, __METHOD__ );
+		$result = $dbw->upsert( self::TABLE, $data, [ 'md5', 'lang' ], $data, __METHOD__ );
 		if ( !$result ) {
 			throw new MWException( __METHOD__ . ': Set Cache failed' );
 		}

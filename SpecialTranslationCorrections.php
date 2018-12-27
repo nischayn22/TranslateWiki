@@ -11,7 +11,7 @@ class SpecialTranslationCorrections extends SpecialPage {
 
 	/**
 	 */
-	public function execute( $par ) {
+	public function execute( $subpage ) {
 		global $wgTranslateWikiLanguages;
 
 		$this->setHeaders();
@@ -23,13 +23,26 @@ class SpecialTranslationCorrections extends SpecialPage {
 			return;
 		}
 
+		$linkDefs = [
+			'Add Corrections' => 'Special:TranslationCorrections',
+			'Edit Corrections' => 'Special:TranslationCorrections/edit'
+		];
+
+		$links = [];
+		foreach ( $linkDefs as $name => $page ) {
+			$title = Title::newFromText( $page );
+			$links[] = $this->getLinkRenderer()->makeLink( $title, new HtmlArmor( $name ) );
+		}
+		$linkStr = $this->getContext()->getLanguage()->pipeList( $links );
+		$out->setSubtitle( $linkStr );
+
 		$target_lang = $request->getVal( 'lang' );
 
 		if ( empty( $target_lang ) ) {
 			$formOpts = [
 				'id' => 'select_lang',
 				'method' => 'get',
-				'action' => $this->getTitle()->getFullUrl()
+				'action' => $this->getTitle()->getFullUrl() . "/" . $subpage
 			];
 			$out->addHTML(
 				Html::openElement( 'form', $formOpts ) . "<br>" .
@@ -49,9 +62,7 @@ class SpecialTranslationCorrections extends SpecialPage {
 			$out->addHTML( Html::closeElement( 'select' ) . "<br>" );
 			$out->addHTML(
 				"<br>" .
-				Html::submitButton( "Add Corrections", array() ) .
-				"<br><br>" .
-				Html::submitButton( "Edit Corrections", array( 'name' => 'update_existing' ) ) .
+				Html::submitButton( "Start", array() ) .
 				Html::closeElement( 'form' )
 			);
 			return;
@@ -66,11 +77,11 @@ class SpecialTranslationCorrections extends SpecialPage {
 			$out->addHTML( '<div style="background-color:#28dc28;color:white;padding:5px;">'. $updated_count .' Corrections Updated.</div>' );
 		}
 
-		if ( $request->getVal( 'update_existing' ) == '' ) {
+		if ( $subpage != 'edit' ) {
 			$formOpts = [
 				'id' => 'add_correction',
 				'method' => 'post',
-				'action' => $this->getTitle()->getFullUrl()
+				'action' => $this->getTitle()->getFullUrl() . "/" . $subpage
 			];
 
 			$out->addHTML(
@@ -88,7 +99,7 @@ class SpecialTranslationCorrections extends SpecialPage {
 			$formOpts = [
 				'id' => 'select_range',
 				'method' => 'get',
-				'action' => $this->getTitle()->getFullUrl()
+				'action' => $this->getTitle()->getFullUrl() . "/" . $subpage
 			];
 
 			$out->addHTML(
@@ -151,7 +162,7 @@ class SpecialTranslationCorrections extends SpecialPage {
 				$formOpts = [
 					'id' => 'edit_corrections',
 					'method' => 'post',
-					'action' => $this->getTitle()->getFullUrl(),
+					'action' => $this->getTitle()->getFullUrl() . "/" . $subpage,
 					'style' => 'clear:both;'
 				];
 
