@@ -59,10 +59,14 @@ class SpecialTranslationCorrections extends SpecialPage {
 					)
 				);
 			}
+			$start_msg = "Start Adding";
+			if ( $subpage == "edit" ) {
+				$start_msg = "Start Editing";
+			}
 			$out->addHTML( Html::closeElement( 'select' ) . "<br>" );
 			$out->addHTML(
 				"<br>" .
-				Html::submitButton( "Start", array() ) .
+				Html::submitButton( $start_msg, array() ) .
 				Html::closeElement( 'form' )
 			);
 			return;
@@ -73,8 +77,22 @@ class SpecialTranslationCorrections extends SpecialPage {
 			$this->saveCorrection();
 			$out->addHTML( '<div style="background-color:#28dc28;color:white;padding:5px;">Correction Saved.</div>' );
 		} else if ( $page_action == 'edit_corrections' ) {
-			$updated_count = $this->editCorrection();
-			$out->addHTML( '<div style="background-color:#28dc28;color:white;padding:5px;">'. $updated_count .' Corrections Updated.</div>' );
+			$update = $request->getVal( 'update' );
+			if ( $update != '' ) {
+				$update_status = $this->editCorrection();
+				if ( $update_status ) {
+					$out->addHTML( '<div style="background-color:#28dc28;color:white;padding:5px;">Correction updated successfully!</div>' );
+				} else {
+					$out->addHTML( '<div style="background-color:red;color:white;padding:5px;">Update failed!</div>' );
+				}
+			} else {
+				$update_status = $this->deleteCorrection();
+				if ( $update_status ) {
+					$out->addHTML( '<div style="background-color:#28dc28;color:white;padding:5px;">Correction deleted successfully!</div>' );
+				} else {
+					$out->addHTML( '<div style="background-color:red;color:white;padding:5px;">Delete failed!</div>' );
+				}
+			}
 		}
 
 		if ( $subpage != 'edit' ) {
@@ -159,40 +177,61 @@ class SpecialTranslationCorrections extends SpecialPage {
 			);
 
 			if ( $res->numRows() > 0 ) {
-				$formOpts = [
-					'id' => 'edit_corrections',
-					'method' => 'post',
-					'action' => $this->getTitle()->getFullUrl() . "/" . $subpage,
-					'style' => 'clear:both;'
-				];
-
-				$out->addHTML(
-					Html::openElement( 'form', $formOpts ) . "<br>" .
-					Html::element( 'input', [ 'name' => 'lang', 'value' => $target_lang, 'type' => 'hidden' ] ) .
-					Html::element( 'input', [ 'name' => 'page_offset', 'value' => $current_offset, 'type' => 'hidden' ] ) .
-					Html::element( 'input', [ 'name' => 'page_limit', 'value' => $limit, 'type' => 'hidden' ] ) .
-					Html::element( 'input', [ 'name' => 'update_existing', 'value' => 1, 'type' => 'hidden' ] ) .
-					Html::element( 'input', [ 'name' => 'page_action', 'value' => 'edit_corrections', 'type' => 'hidden' ] )
-				);
+				$out->addHTML( '
+					<div>
+						<div style="float:left;width:30%;height:40px;">
+							<h4>Original String</h4>
+						</div>
+						<div style="float:left;margin-left:1%;margin-right:1%;height: 10px;"></div>
+						<div style="float:left;width:30%;height:40px;">
+							<h4>Corrected String</h4>
+						</div>
+						<div style="float:left;margin-left:1%;margin-right:1%;height: 10px;"></div>
+						<div style="float:left;width:30%;height:40px;">
+							<h4>Actions</h4>
+						</div>
+					</div>
+				');
 				foreach ( $res as $row ) {
+					$formOpts = [
+						'id' => 'edit_corrections',
+						'method' => 'post',
+						'action' => $this->getTitle()->getFullUrl() . "/" . $subpage,
+						'style' => 'clear:both;'
+					];
+
+					$out->addHTML(
+						"<br>" .
+						Html::openElement( 'form', $formOpts ) .
+						Html::element( 'input', [ 'name' => 'lang', 'value' => $target_lang, 'type' => 'hidden' ] ) .
+						Html::element( 'input', [ 'name' => 'page_offset', 'value' => $current_offset, 'type' => 'hidden' ] ) .
+						Html::element( 'input', [ 'name' => 'page_limit', 'value' => $limit, 'type' => 'hidden' ] ) .
+						Html::element( 'input', [ 'name' => 'update_existing', 'value' => 1, 'type' => 'hidden' ] ) .
+						Html::element( 'input', [ 'name' => 'correction_id', 'value' => $row->id, 'type' => 'hidden' ] ) .
+						Html::element( 'input', [ 'name' => 'page_action', 'value' => 'edit_corrections', 'type' => 'hidden' ] )
+					);
 					$out->addHTML( '
 						<div>
-							<div style="float:left;width:45%;height:100px;">
-								' . Html::textarea( $row->id . '_original_str', $row->original_str ) . '
+							<div style="float:left;width:30%;height:100px;">
+								' . Html::textarea( 'original_str', $row->original_str ) . '
 							</div>
-							<div style="float:left;margin-left:3%;margin-right:3%;border-left: 2px solid grey;height: 100px;"></div>
-							<div style="float:left;width:45%;height:100px;">
-								'. Html::textarea( $row->id . '_corrected_str', $row->corrected_str ) .'
+							<div style="float:left;margin-left:1%;margin-right:1%;height: 100px;"></div>
+							<div style="float:left;width:30%;height:100px;">
+								'. Html::textarea( 'corrected_str', $row->corrected_str ) .'
+							</div>
+							<div style="float:left;margin-left:1%;margin-right:1%;height: 100px;"></div>
+							<div style="float:left;width:30%;height:100px;">
+								'. 
+								Html::submitButton( "Update Correction", array( 'name' => 'update' ) ) .
+								'&emsp;' .
+								Html::submitButton( "Delete Correction", array( 'name' => 'delete' ) ) .
+								Html::closeElement( 'form' )
+								.'
 							</div>
 						</div>
 						<br>
 					' );
 				}
-				$out->addHTML(
-					"<br>" .
-					Html::submitButton( "Update Corrections", array() ) .
-					Html::closeElement( 'form' )
-				);
 			}
 		}
 	}
@@ -212,40 +251,59 @@ class SpecialTranslationCorrections extends SpecialPage {
 		);
 	}
 
+	function deleteCorrection() {
+		$dbr = wfGetDB( DB_SLAVE );
+		$dbw = wfGetDB( DB_MASTER );
+		$request = $this->getRequest();
+
+		$current_offset = $request->getVal( 'page_offset' );
+		$target_lang = $request->getVal( 'lang' );
+
+		$correction_id = $request->getVal( 'correction_id' );
+
+		$result = $dbr->delete(
+			TranslationCorrections::TABLE,
+			[ 'id' => $correction_id, 'lang' => $target_lang ],
+			__METHOD__
+		);
+		if ( $result ) {
+			return true;
+		} else {
+			return false;
+		}
+	}
+
 	function editCorrection() {
 		$dbr = wfGetDB( DB_SLAVE );
 		$dbw = wfGetDB( DB_MASTER );
 		$request = $this->getRequest();
-		$updated_count = 0;
 
 		$current_offset = $request->getVal( 'page_offset' );
-		$page_limit = $request->getVal( 'page_limit' );
 		$target_lang = $request->getVal( 'lang' );
 
-		$res = $dbr->select( 
+		$correction_id = $request->getVal( 'correction_id' );
+
+		$row = $dbr->selectRow( 
 			TranslationCorrections::TABLE,
-			[ 'id', 'original_str', 'corrected_str' ],
-			[ 'lang' => $target_lang ],
-			__METHOD__,
-			array( 'OFFSET' => $current_offset, 'LIMIT' => $page_limit )
+			[ 'original_str', 'corrected_str' ],
+			[ 'id' => $correction_id, 'lang' => $target_lang ],
+			__METHOD__
 		);
-		foreach( $res as $row ) {
-			$original_str = $request->getVal( $row->id . '_original_str' );
-			$corrected_str = $request->getVal( $row->id . '_corrected_str' );
-			if ( empty( $original_str ) || empty( $corrected_str ) ) {
-				continue;
-			}
-			if ( $original_str != $row->original_str || $corrected_str != $row->corrected_str ) {
-				$updated_count++;
-				$dbw->update(
-					TranslationCorrections::TABLE,
-					[ 'original_str' => $original_str, 'corrected_str' => $corrected_str ],
-					array( 'id' => $row->id ),
-					__METHOD__
-				);
-			}
+		$original_str = $request->getVal( 'original_str' );
+		$corrected_str = $request->getVal( 'corrected_str' );
+		if ( empty( $original_str ) || empty( $corrected_str ) ) {
+			return false;
 		}
-		return $updated_count;
+		if ( $original_str != $row->original_str || $corrected_str != $row->corrected_str ) {
+			$dbw->update(
+				TranslationCorrections::TABLE,
+				[ 'original_str' => $original_str, 'corrected_str' => $corrected_str ],
+				array( 'id' => $correction_id ),
+				__METHOD__
+			);
+			return true;
+		}
+		return false;
 	}
 
 }
