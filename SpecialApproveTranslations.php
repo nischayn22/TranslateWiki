@@ -11,17 +11,31 @@ class SpecialApproveTranslations extends SpecialPage {
 
 	/**
 	 */
-	public function execute( $par ) {
+	public function execute( $subpage ) {
 		global $wgTranslateWikiNamespaces, $wgTranslateWikiLanguages, $wgSyncWikis;
 
 		$this->setHeaders();
 		$request = $this->getRequest();
 		$out = $this->getOutput();
+		$dbr = wfGetDB( DB_SLAVE );
 
 		if( !in_array( 'sysop', $this->getUser()->getEffectiveGroups()) ) {
 			$out->addHTML( '<div class="errorbox">This page is only accessible by users with sysop right.</div>' );
 			return;
 		}
+
+		$linkDefs = [
+			'Get Page List' => 'Special:ApproveTranslations',
+			'Search Page' => 'Special:ApproveTranslations/search'
+		];
+
+		$links = [];
+		foreach ( $linkDefs as $name => $page ) {
+			$title = Title::newFromText( $page );
+			$links[] = $this->getLinkRenderer()->makeLink( $title, new HtmlArmor( $name ) );
+		}
+		$linkStr = $this->getContext()->getLanguage()->pipeList( $links );
+		$out->setSubtitle( $linkStr );
 
 		$namespace = $request->getVal( 'ns' );
 		$target_lang = $request->getVal( 'lang' );
@@ -30,7 +44,7 @@ class SpecialApproveTranslations extends SpecialPage {
 			$formOpts = [
 				'id' => 'select_ns',
 				'method' => 'get',
-				'action' => $this->getTitle()->getFullUrl()
+				'action' => $this->getTitle()->getFullUrl() . "/" . $subpage
 			];
 			$out->addHTML(
 				Html::openElement( 'form', $formOpts ) . "<br>" .
@@ -62,9 +76,13 @@ class SpecialApproveTranslations extends SpecialPage {
 				);
 			}
 			$out->addHTML( Html::closeElement( 'select' ) . "<br>" );
+			$start_msg = "Get Page List";
+			if ( $subpage == "search" ) {
+				$start_msg = "Show Search Page";
+			}
 			$out->addHTML(
 				"<br>" .
-				Html::submitButton( "Get Page List", array() ) .
+				Html::submitButton( $start_msg, array() ) .
 				Html::closeElement( 'form' )
 			);
 			return;
@@ -80,111 +98,159 @@ class SpecialApproveTranslations extends SpecialPage {
 
 		$out->addHTML( '<i>Note: You can also translate all pages in bulk using the maintenance script autoTranslateWiki.php </i>' );
 
-		$formOpts = [
-			'id' => 'select_range',
-			'method' => 'get',
-			'action' => $this->getTitle()->getFullUrl()
-		];
-
-		$out->addHTML(
-			Html::openElement( 'form', $formOpts ) . "<br>" .
-			Html::element( 'input', [ 'name' => 'ns', 'value' => $namespace, 'type' => 'hidden' ] ) .
-			Html::element( 'input', [ 'name' => 'lang', 'value' => $target_lang, 'type' => 'hidden' ] ) .
-			Html::label( "Select a range:","", array( "for" => "page_offset" ) ) . "<br>" .
-			Html::openElement( 'select', array( "id" => "page_offset", "name" => "page_offset", "style" => "width:100%;" ) )
-		);
-
-		$dbr = wfGetDB( DB_SLAVE );
-		$conds = [ 'page_namespace' => $namespace, 'page_is_redirect' => 0 ];
-		$pages_count = $dbr->selectField( 'page',
-			[ 'COUNT(*)' ],
-			$conds,
-			__METHOD__
-		);
-
-		$limit = 20;
-		$offsets = range( 0, $pages_count, $limit );
-		$current_offset = $request->getVal( 'page_offset' );
-		if ( $current_offset == '' ) {
-			$current_offset = 0;
-		}
-
-		foreach( $offsets as $offset ) {
-			$to_offset = min( $offset + $limit, $pages_count );
+		$current_offset = 0;
+		if ( $subpage == "search" ) {
+			$formOpts = [
+				'id' => 'search_page',
+				'method' => 'get',
+				'action' => $this->getTitle()->getFullUrl() . "/" . $subpage
+			];
+			$search_text = $request->getVal( 'search_text' );
 			$out->addHTML(
-				Html::element(
-					'option', [
-						'selected' => $offset == $current_offset,
-						'value' => $offset,
-					], $offset . ' - ' . $to_offset
-				)
+				Html::openElement( 'form', $formOpts ) . "<br>" .
+				Html::element( 'input', [ 'name' => 'search_text', 'value' => $search_text, 'type' => 'text', 'size' => '70' ] ) .
+				Html::element( 'input', [ 'name' => 'ns', 'value' => $namespace, 'type' => 'hidden' ] ) .
+				Html::element( 'input', [ 'name' => 'lang', 'value' => $target_lang, 'type' => 'hidden' ] )
 			);
-		}
+			$out->addHTML(
+				"<br>" .
+				Html::submitButton( "Search", array() ) .
+				Html::closeElement( 'form' )
+			);
+			if ( empty( $current_page ) && !empty( $search_text ) ) {
+				$params = new DerivativeRequest(
+					$request, // Fallback upon $wgRequest if you can't access context.
+					array(
+						'action' => 'query',
+						'list' => 'search',
+						'srwhat' => 'title',
+						'srsearch' => $search_text
+					)
+				);
+				$api = new ApiMain( $params );
+				$api->execute();
+				$data = $api->getResult()->getResultData();
+				if ( $data['query']['searchinfo']['totalhits'] == 0 ) {
+					$out->addHTML( 'No results found.' );
+				} else {
+					$out->addHTML( '<br><h4>Results</h4>' );
+					foreach( $data['query']['search'] as $search_result ) {
+						if ( is_array( $search_result ) ) {
+							$translate_url = $this->getTitle()->getFullUrl() . "/" . $subpage . '?ns=' . $namespace . '&lang=' . $target_lang . '&search_text='. $search_text .'&page=' . $search_result['pageid'];
+							$force_translate_url = $this->getTitle()->getFullUrl() . "/" . $subpage . '?ns=' . $namespace . '&lang=' . $target_lang . '&search_text='. $search_text .'&page=' . $search_result['pageid'] . '&retranslate=yes';
 
-		$out->addHTML( Html::closeElement( 'select' ) . "<br>" );
-		$out->addHTML(
-			"<br>" .
-			Html::submitButton( "Get Page List", array() ) .
-			Html::closeElement( 'form' )
-		);
+							$out->addHTML( Linker::link( Title::newFromText( $search_result['title'] ) ) . ' (<a href="'. $translate_url .'">Auto Translate and Show Approvals</a> | <a href="'. $force_translate_url .'">Re-translate and Show Approvals</a> )<br>');
+						}
+					}
+				}
+			}
+		} else {
+			$formOpts = [
+				'id' => 'select_range',
+				'method' => 'get',
+				'action' => $this->getTitle()->getFullUrl() . "/" . $subpage
+			];
 
-		$formOpts = [
-			'id' => 'select_range',
-			'method' => 'get',
-			'action' => $this->getTitle()->getFullUrl()
-		];
-		$out->addHTML(
-			Html::openElement( 'form', $formOpts ) . "<br>" .
-			Html::element( 'input', [ 'name' => 'ns', 'value' => $namespace, 'type' => 'hidden' ] ) .
-			Html::element( 'input', [ 'name' => 'lang', 'value' => $target_lang, 'type' => 'hidden' ] ) .
-			Html::element( 'input', [ 'name' => 'page_offset', 'value' => $current_offset, 'type' => 'hidden' ] ) .
-			Html::label( "Select a page:","", array( "for" => "page" ) ) . "<br>" .
-			Html::openElement( 'select', array( "id" => "page", "name" => "page", "style" => "width:100%;" ) )
-		);
+			$out->addHTML(
+				Html::openElement( 'form', $formOpts ) . "<br>" .
+				Html::element( 'input', [ 'name' => 'ns', 'value' => $namespace, 'type' => 'hidden' ] ) .
+				Html::element( 'input', [ 'name' => 'lang', 'value' => $target_lang, 'type' => 'hidden' ] ) .
+				Html::label( "Select a range:","", array( "for" => "page_offset" ) ) . "<br>" .
+				Html::openElement( 'select', array( "id" => "page_offset", "name" => "page_offset", "style" => "width:100%;" ) )
+			);
 
-		$dbr = wfGetDB( DB_SLAVE );
-		$conds = [ 'page_namespace' => $namespace, 'page_is_redirect' => 0 ];
-		$res = $dbr->select( 'page',
-			[ 'page_title', 'page_id' ],
-			$conds,
-			__METHOD__,
-			array( 'OFFSET' => $current_offset, 'LIMIT' => $limit )
-		);
+			$dbr = wfGetDB( DB_SLAVE );
+			$conds = [ 'page_namespace' => $namespace, 'page_is_redirect' => 0 ];
+			$pages_count = $dbr->selectField( 'page',
+				[ 'COUNT(*)' ],
+				$conds,
+				__METHOD__
+			);
 
-		foreach ( $res as $row ) {
-			$conds = array( 'page_id' => $row->page_id, "lang" => $target_lang, "approval_status" => 1 );
-			$approved_translations = $dbr->selectField( TranslationCache::TABLE, 'COUNT(*)', $conds, __METHOD__ );
-
-			$conds = array( 'page_id' => $row->page_id, "lang" => $target_lang, "approval_status" => 0 );
-			$unapproved_translations = $dbr->selectField( TranslationCache::TABLE, 'COUNT(*)', $conds, __METHOD__ );
-
-			$page_summary = '';
-			if ( $approved_translations == 0 && $unapproved_translations == 0 ) {
-				$page_summary = 'Not Translated';
-			} else if ( $unapproved_translations > 0 ) {
-				$page_summary = $unapproved_translations . ' Approvals Pending';
-			} else {
-				$page_summary = 'No Approvals Pending';
+			$limit = 20;
+			$offsets = range( 0, $pages_count, $limit );
+			$current_offset = $request->getVal( 'page_offset' );
+			if ( $current_offset == '' ) {
+				$current_offset = 0;
 			}
 
+			foreach( $offsets as $offset ) {
+				$to_offset = min( $offset + $limit, $pages_count );
+				$out->addHTML(
+					Html::element(
+						'option', [
+							'selected' => $offset == $current_offset,
+							'value' => $offset,
+						], $offset . ' - ' . $to_offset
+					)
+				);
+			}
+
+			$out->addHTML( Html::closeElement( 'select' ) . "<br>" );
 			$out->addHTML(
-				Html::element(
-					'option', [
-						'selected' => $row->page_id == $current_page,
-						'value' => $row->page_id,
-					], $row->page_title . ' - ' . $page_summary
-				)
+				"<br>" .
+				Html::submitButton( "Get Page List", array() ) .
+				Html::closeElement( 'form' )
+			);
+
+			$formOpts = [
+				'id' => 'select_range',
+				'method' => 'get',
+				'action' => $this->getTitle()->getFullUrl() . "/" . $subpage
+			];
+			$out->addHTML(
+				Html::openElement( 'form', $formOpts ) . "<br>" .
+				Html::element( 'input', [ 'name' => 'ns', 'value' => $namespace, 'type' => 'hidden' ] ) .
+				Html::element( 'input', [ 'name' => 'lang', 'value' => $target_lang, 'type' => 'hidden' ] ) .
+				Html::element( 'input', [ 'name' => 'page_offset', 'value' => $current_offset, 'type' => 'hidden' ] ) .
+				Html::label( "Select a page:","", array( "for" => "page" ) ) . "<br>" .
+				Html::openElement( 'select', array( "id" => "page", "name" => "page", "style" => "width:100%;" ) )
+			);
+
+			$conds = [ 'page_namespace' => $namespace, 'page_is_redirect' => 0 ];
+			$res = $dbr->select( 'page',
+				[ 'page_title', 'page_id' ],
+				$conds,
+				__METHOD__,
+				array( 'OFFSET' => $current_offset, 'LIMIT' => $limit )
+			);
+
+			foreach ( $res as $row ) {
+				$conds = array( 'page_id' => $row->page_id, "lang" => $target_lang, "approval_status" => 1 );
+				$approved_translations = $dbr->selectField( TranslationCache::TABLE, 'COUNT(*)', $conds, __METHOD__ );
+
+				$conds = array( 'page_id' => $row->page_id, "lang" => $target_lang, "approval_status" => 0 );
+				$unapproved_translations = $dbr->selectField( TranslationCache::TABLE, 'COUNT(*)', $conds, __METHOD__ );
+
+				$page_summary = '';
+				if ( $approved_translations == 0 && $unapproved_translations == 0 ) {
+					$page_summary = 'Not Translated';
+				} else if ( $unapproved_translations > 0 ) {
+					$page_summary = $unapproved_translations . ' Approvals Pending';
+				} else {
+					$page_summary = 'No Approvals Pending';
+				}
+
+				$out->addHTML(
+					Html::element(
+						'option', [
+							'selected' => $row->page_id == $current_page,
+							'value' => $row->page_id,
+						], $row->page_title . ' - ' . $page_summary
+					)
+				);
+			}
+			$out->addHTML( Html::closeElement( 'select' ) );
+
+			$out->addHTML(
+				"<br><br>" .
+				Html::submitButton( "Auto Translate and Show Approvals", array() ) .
+				"<br><br>" .
+				Html::submitButton( "Re-translate and Show Approvals", array( 'name' => 'retranslate' ) ) .
+				Html::closeElement( 'form' )
 			);
 		}
-		$out->addHTML( Html::closeElement( 'select' ) );
 
-		$out->addHTML(
-			"<br><br>" .
-			Html::submitButton( "Auto Translate and Show Approvals", array() ) .
-			"<br><br>" .
-			Html::submitButton( "Re-translate and Show Approvals", array( 'name' => 'retranslate' ) ) .
-			Html::closeElement( 'form' )
-		);
 		if ( $current_page != '' ) {
 
 			$title = Revision::newFromPageId( $current_page )->getTitle();
@@ -231,7 +297,7 @@ class SpecialApproveTranslations extends SpecialPage {
 			$formOpts = [
 				'id' => 'approve_translations',
 				'method' => 'post',
-				'action' => $this->getTitle()->getFullUrl(),
+				'action' => $this->getTitle()->getFullUrl() . "/" . $subpage,
 				'style' => 'clear:both;'
 			];
 
