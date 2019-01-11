@@ -100,49 +100,29 @@ class SpecialApproveTranslations extends SpecialPage {
 
 		$current_offset = 0;
 		if ( $subpage == "search" ) {
-			$formOpts = [
-				'id' => 'search_page',
-				'method' => 'get',
-				'action' => $this->getTitle()->getFullUrl() . "/" . $subpage
+			$fields = [
+				'title' => [
+					'type' => 'title',
+					'name' => 'search_text',
+					'required' => true,
+					'exists' => true
+				]
 			];
-			$search_text = $request->getVal( 'search_text' );
-			$out->addHTML(
-				Html::openElement( 'form', $formOpts ) . "<br>" .
-				Html::element( 'input', [ 'name' => 'search_text', 'value' => $search_text, 'type' => 'text', 'size' => '70' ] ) .
-				Html::element( 'input', [ 'name' => 'ns', 'value' => $namespace, 'type' => 'hidden' ] ) .
-				Html::element( 'input', [ 'name' => 'lang', 'value' => $target_lang, 'type' => 'hidden' ] )
-			);
-			$out->addHTML(
-				"<br>" .
-				Html::submitButton( "Search", array() ) .
-				Html::closeElement( 'form' )
-			);
-			if ( empty( $current_page ) && !empty( $search_text ) ) {
-				$params = new DerivativeRequest(
-					$request, // Fallback upon $wgRequest if you can't access context.
-					array(
-						'action' => 'query',
-						'list' => 'search',
-						'srwhat' => 'title',
-						'srsearch' => $search_text
-					)
-				);
-				$api = new ApiMain( $params );
-				$api->execute();
-				$data = $api->getResult()->getResultData();
-				if ( $data['query']['searchinfo']['totalhits'] == 0 ) {
-					$out->addHTML( 'No results found.' );
-				} else {
-					$out->addHTML( '<br><h4>Results</h4>' );
-					foreach( $data['query']['search'] as $search_result ) {
-						if ( is_array( $search_result ) ) {
-							$translate_url = $this->getTitle()->getFullUrl() . "/" . $subpage . '?ns=' . $namespace . '&lang=' . $target_lang . '&search_text='. $search_text .'&page=' . $search_result['pageid'];
-							$force_translate_url = $this->getTitle()->getFullUrl() . "/" . $subpage . '?ns=' . $namespace . '&lang=' . $target_lang . '&search_text='. $search_text .'&page=' . $search_result['pageid'] . '&retranslate=yes';
+			$htmlForm = HTMLForm::factory( 'ooui', $fields, $this->getContext() );
+			$htmlForm->addHiddenField( 'ns', $namespace );
+			$htmlForm->addHiddenField( 'lang', $target_lang );
+			$htmlForm->setAction( $this->getTitle()->getFullUrl() . "/" . $subpage );
+			$htmlForm->setMethod( 'get' );
+			$htmlForm->prepareForm()->displayForm( false );
 
-							$out->addHTML( Linker::link( Title::newFromText( $search_result['title'] ) ) . ' (<a href="'. $translate_url .'">Auto Translate and Show Approvals</a> | <a href="'. $force_translate_url .'">Re-translate and Show Approvals</a> )<br>');
-						}
-					}
-				}
+			$search_text = $request->getVal( 'search_text' );
+			if ( empty( $current_page ) && !empty( $search_text ) ) {
+				$page_id = ( new WikiPage( Title::newFromText( $search_text ) ) )->getId();
+				$out->addHTML( '<br><h4>Results</h4>' );
+				$translate_url = $this->getTitle()->getFullUrl() . "/" . $subpage . '?ns=' . $namespace . '&lang=' . $target_lang . '&search_text='. $search_text .'&page=' . $page_id;
+				$force_translate_url = $this->getTitle()->getFullUrl() . "/" . $subpage . '?ns=' . $namespace . '&lang=' . $target_lang . '&search_text='. $search_text .'&page=' . $page_id . '&retranslate=yes';
+
+				$out->addHTML( Linker::link( Title::newFromText( $search_text ) ) . ' (<a href="'. $translate_url .'">Auto Translate and Show Approvals</a> | <a href="'. $force_translate_url .'">Re-translate and Show Approvals</a> )<br>');
 			}
 		} else {
 			$formOpts = [
