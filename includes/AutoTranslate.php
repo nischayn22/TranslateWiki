@@ -70,6 +70,17 @@ class AutoTranslate {
 		return $translatedTemplateContent;
 	}
 
+	private function innerHTML(DOMNode $elm) {
+		$innerHTML = '';
+		$children  = $elm->childNodes;
+
+		foreach($children as $child) {
+			$innerHTML .= $elm->ownerDocument->saveHTML($child);
+		}
+
+		return $innerHTML;
+	}
+
 	private function postProcessFragment( $translated_content, $translate_titles = false ) {
 		$dom = new DomDocument();
 		$dom->loadHTML( '<?xml encoding="utf-8" ?><p>' . $translated_content . '</p>', LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD );
@@ -79,7 +90,7 @@ class AutoTranslate {
 			$span_item = $span_items->item(0);
  			$type = $span_item->getAttribute("class");
 			$link = $span_item->getAttribute("data-link");
-			$value = $span_item->nodeValue;
+			$value = $this->postProcessFragment( $this->innerHTML( $span_item ), true );
 			$new_element = null;
 			if ( $type == "link" ) {
 				if ( $translate_titles ) {
@@ -173,7 +184,7 @@ class AutoTranslate {
 		$translated_content = '';
 
 		$len = strlen( $content );
-		$pre_cur_str = '';
+		$pre_cur_str = array();
 		$curr_str = '';
 		$state_deep = 0;
 		$state_arr = array( 'CONTENT' );
@@ -211,7 +222,7 @@ class AutoTranslate {
 			}
 
 			if ( $content[$i] == "'" && $content[$i+1] == "'" && $state_arr[$state_deep] == 'CONTENT' ) {
-				$pre_cur_str = $curr_str;
+				array_push( $pre_cur_str, $curr_str );
 				$curr_str = '';
 				if ( $content[$i+2] == "'" && $content[$i+3] == "'" && $content[$i+4] == "'" ) {
 					$state_arr[] = 'BOLDITALICBEGIN';
@@ -232,8 +243,7 @@ class AutoTranslate {
 			}
 
 			if ( $content[$i] == "'" && $content[$i+1] == "'" && $state_arr[$state_deep] == 'BOLDITALICBEGIN' ) {
-				$curr_str = $pre_cur_str . '<span class="bolditalic">'. $curr_str .'</span>';
-				$pre_cur_str = '';
+				$curr_str = array_pop( $pre_cur_str ) . '<span class="bolditalic">'. $curr_str .'</span>';
 
 				array_pop( $state_arr );
 				$state_deep--;
@@ -241,8 +251,7 @@ class AutoTranslate {
 				continue;
 			}
 			if ( $content[$i] == "'" && $content[$i+1] == "'" && $state_arr[$state_deep] == 'BOLDBEGIN' ) {
-				$curr_str = $pre_cur_str . '<span class="bold">'. $curr_str .'</span>';
-				$pre_cur_str = '';
+				$curr_str = array_pop( $pre_cur_str ) . '<span class="bold">'. $curr_str .'</span>';
 
 				array_pop( $state_arr );
 				$state_deep--;
@@ -250,8 +259,7 @@ class AutoTranslate {
 				continue;
 			}
 			if ( $content[$i] == "'" && $content[$i+1] == "'" && $state_arr[$state_deep] == 'ITALICBEGIN' ) {
-				$curr_str = $pre_cur_str . '<span class="italic">'. $curr_str .'</span>';
-				$pre_cur_str = '';
+				$curr_str = array_pop( $pre_cur_str ) . '<span class="italic">'. $curr_str .'</span>';
 
 				array_pop( $state_arr );
 				$state_deep--;
@@ -326,9 +334,9 @@ class AutoTranslate {
 				continue;
 			}
 
-			if ( $content[$i] == '[' && $state_arr[$state_deep] == 'CONTENT' ) {
+			if ( $content[$i] == '[' && in_array( $state_arr[$state_deep], [ 'CONTENT', 'BOLDBEGIN', 'BOLDITALICBEGIN', 'ITALICBEGIN' ] ) ) {
 
-				$pre_cur_str = $curr_str;
+				array_push( $pre_cur_str, $curr_str );
 				$curr_str = '';
 
 				$state_arr[] = 'LINKBEGIN';
@@ -348,11 +356,10 @@ class AutoTranslate {
 				array_pop( $state_arr );
 				$state_deep--;
 				if ( ( $pos = strpos( $curr_str, " " ) ) !== FALSE ) { 
-					$curr_str = $pre_cur_str . '<span class="external_link" data-link="'. substr( $curr_str, 0, $pos ) .'">'. substr( $curr_str, $pos + 1 ) .'</span>';
+					$curr_str = array_pop( $pre_cur_str ) . '<span class="external_link" data-link="'. substr( $curr_str, 0, $pos ) .'">'. substr( $curr_str, $pos + 1 ) .'</span>';
 				} else {
-					$curr_str = $pre_cur_str . '<span class="external_link" data-link="'. $curr_str .'"></span>';
+					$curr_str = array_pop( $pre_cur_str ) . '<span class="external_link" data-link="'. $curr_str .'"></span>';
 				}
-				$pre_cur_str = '';
 				continue;
 			}
 
@@ -370,11 +377,10 @@ class AutoTranslate {
 				$link_parts = explode( '|', $curr_str );
 
 				if ( count( $link_parts ) == 2 ) {
-					$curr_str = $pre_cur_str . '<span class="link" data-link="'. trim( $link_parts[0] ) .'">'. $link_parts[1] .'</span>';
+					$curr_str = array_pop( $pre_cur_str ) . '<span class="link" data-link="'. trim( $link_parts[0] ) .'">'. $link_parts[1] .'</span>';
 				} else {
-					$curr_str = $pre_cur_str . '<span class="link" data-link="'. trim( $link_parts[0] ) .'">'. trim( $link_parts[0] ) .'</span>';
+					$curr_str = array_pop( $pre_cur_str ) . '<span class="link" data-link="'. trim( $link_parts[0] ) .'">'. trim( $link_parts[0] ) .'</span>';
 				}
-				$pre_cur_str = '';
 				continue;
 			}
 
