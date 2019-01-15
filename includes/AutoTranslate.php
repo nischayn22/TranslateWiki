@@ -191,6 +191,12 @@ class AutoTranslate {
 
 		for ( $i = 0; $i < $len; $i++ ){
 
+			if ( $content[$i] == PHP_EOL && $state_arr[$state_deep] == 'CONTENT' ) {
+				$translated_content .= $this->translateText( $curr_str ) . PHP_EOL;
+				$curr_str = '';
+				continue;
+			}
+
 			if ( ( $content[$i] == "*" || $content[$i] == "#" ) && $state_arr[$state_deep] == 'CONTENT' ) {
 				$translated_content .= $this->translateText( $curr_str );
 				$curr_str = '';
