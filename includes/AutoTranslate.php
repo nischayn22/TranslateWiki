@@ -95,9 +95,17 @@ class AutoTranslate {
 			if ( $type == "link" ) {
 				if ( $translate_titles ) {
 					$translated_link = $this->translateText( $link, true );
-					$new_element = $dom->createElement( 'PLACEHOLDER', "[[$translated_link|$value]]" );
+					if ( $translated_link != $value ) {
+						$new_element = $dom->createElement( 'PLACEHOLDER', "[[$translated_link|$value]]" );
+					} else {
+						$new_element = $dom->createElement( 'PLACEHOLDER', "[[$translated_link]]" );
+					}
 				} else {
-					$new_element = $dom->createElement( 'PLACEHOLDER', "[[$link|$value]]" );
+					if ( $link != $value ) {
+						$new_element = $dom->createElement( 'PLACEHOLDER', "[[$link|$value]]" );
+					} else {
+						$new_element = $dom->createElement( 'PLACEHOLDER', "[[$link]]" );
+					}
 				}
 			} else if ( $type == "external_link" ) {
 				$new_element = $dom->createElement( 'PLACEHOLDER', "[$link $value]" );
