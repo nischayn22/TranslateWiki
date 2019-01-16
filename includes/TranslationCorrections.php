@@ -5,8 +5,8 @@
 class TranslationCorrections {
 	const TABLE = 'translation_corrections';
 
-	private $target_lang;
-	private $correctionCache = array();
+	protected $target_lang;
+	protected $correctionCache = array();
 
 	function __construct( $target_lang ) {
 		$this->target_lang = $target_lang;

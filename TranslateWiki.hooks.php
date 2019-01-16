@@ -14,6 +14,9 @@ class TranslateWikiHooks {
 		$updater->addExtensionTable( TranslationCorrections::TABLE,
 			__DIR__ . '/includes/sql/translation_corrections.sql', true );
 
+		$updater->addExtensionTable( LinkTranslations::TABLE,
+			__DIR__ . '/includes/sql/link_translations.sql', true );
+
 		return true;
 	}
 }
