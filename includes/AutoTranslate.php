@@ -427,8 +427,8 @@ class AutoTranslate {
 				continue;
 			}
 
-			// Handle nested templates
-			if ( $content[$i] == '{' && in_array( $state_arr[$state_deep], array( 'PARSERFUNCBEGIN', 'TEMPLATEBEGIN' ) ) ) {
+			// Handle nested templates - this is required just to ignore them for now so they can be handled recursively.
+			if ( $content[$i] == '{' && in_array( $state_arr[$state_deep], array( 'PARSERFUNCBEGIN', 'TEMPLATEBEGIN', 'NESTEDTEMPLATE' ) ) ) {
 				$state_arr[] = 'NESTEDTEMPLATEBEGIN';
 				$state_deep++;
 				$curr_str .= $content[$i];
@@ -521,12 +521,12 @@ class AutoTranslate {
 				continue;
 			}
 
-			if ( $templateContent && $state_arr[$state_deep] == 'CONTENT' && in_array( $content[$i], array( '|', '=' ) ) ) {
+			if ( $templateContent && $state_arr[$state_deep] == 'CONTENT' && in_array( $content[$i], array( "|", "=" ) ) ) {
 				if ( $content[$i] == '=' ) { //Its a parameter name of a template
 					$translated_content .= $curr_str . '=';
 					$curr_str = '';
 				} else if ( $content[$i] == '|' ) {
-					$translated_content .= $this->translateText( $curr_str ) . '|';
+					$translated_content .= $this->translateWikiText( $curr_str ) . '|';
 					$curr_str = '';
 				}
 				continue;
