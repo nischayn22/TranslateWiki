@@ -61,6 +61,78 @@ class AutoTranslate {
 		return $this->translationFragments;
 	}
 
+	private function translateTableLine( $table_line, $line_type ) {
+		if ( $line_type == "TABLE_START" ) {
+			return $table_line;
+		} else if ( $line_type == "CAPTION_START" ) {
+			if ( count( explode( "|", $table_line ) ) == 2 ) {
+				return "|+" . current( explode( "|", $table_line ) ) . "|" . $this->translateWikiText( end( explode( "|", $table_line ) ) );
+			} else {
+				return "|+" . $this->translateWikiText( $table_line );
+			}
+		} else if ( $line_type == "ROW_START" ) {
+			return "|-" . $table_line;
+		} else if ( $line_type == "HEADER_START" ) {
+			$headers = explode( "!!", $table_line );
+			foreach( $headers as &$header ) {
+				if ( count( explode( "|", $header ) ) == 2 ) {
+					$header = current( explode( "|", $header ) ) . "|" . $this->translateWikiText( end( explode( "|", $header ) ) );
+				} else {
+					$header = $this->translateWikiText( $header );
+				}
+			}
+			return "!" . implode( "!!", $headers );
+		} else if ( $line_type == "DATA_CELL_START" ) {
+			$cells = explode( "||", $table_line );
+			foreach( $cells as &$cell ) {
+				if ( count( explode( "|", $cell ) ) == 2 ) {
+					$cell = current( explode( "|", $cell ) ) . "|" . $this->translateWikiText( end( explode( "|", $cell ) ) );
+				} else {
+					$cell = $this->translateWikiText( $cell );
+				}
+			}
+			return "|" . implode( "||", $cells );
+		}
+	}
+
+	private function translateTable( $tableContent ) {
+		$translated_content = "";
+		$line_type = 'TABLE_START';
+		$pos = 0;
+		$state_pos = 0;
+		while( $pos < strlen( $tableContent ) ) {
+			$pos++;
+			if ( $pos == strlen( $tableContent ) ) {
+				$translated_content .= $this->translateTableLine( substr( $tableContent, $state_pos, $pos - $state_pos ), $line_type );
+				break;
+			}
+			if ( $tableContent[$pos] == "\n" ) {
+				continue;
+			}
+			if ( $tableContent[$pos-1] == "\n" ) {
+				if ( $tableContent[$pos] == "|" && $tableContent[$pos+1] == "+" ) {
+					$translated_content .= $this->translateTableLine( substr( $tableContent, $state_pos, $pos - $state_pos ), $line_type );
+					$line_type = 'CAPTION_START';
+					$state_pos = $pos + 2;
+				} else if ( $tableContent[$pos] == "|" && $tableContent[$pos+1] == "-" ) {
+					$translated_content .= $this->translateTableLine( substr( $tableContent, $state_pos, $pos - $state_pos ), $line_type );
+					$line_type = 'ROW_START';
+					$state_pos = $pos + 2;
+				} else if ( $tableContent[$pos] == "!" ) {
+					$translated_content .= $this->translateTableLine( substr( $tableContent, $state_pos, $pos - $state_pos ), $line_type );
+					$line_type = 'HEADER_START';
+					$state_pos = $pos + 1;
+				} else if ( $tableContent[$pos] == "|" ) {
+					$translated_content .= $this->translateTableLine( substr( $tableContent, $state_pos, $pos - $state_pos ), $line_type );
+					$line_type = 'DATA_CELL_START';
+					$state_pos = $pos + 1;
+				}
+			}
+		}
+//		dieq( $tableContent, $translated_content );
+		return $translated_content;
+	}
+
 	private function translateTemplateContents( $templateContent ) {
 		$pos = strpos( $templateContent, '|' );
 		$templateName = substr( $templateContent, 0, $pos );
@@ -412,6 +484,22 @@ class AutoTranslate {
 			if ( $content[$i] == '#'&& substr( $content, $i+1, 8 ) == 'REDIRECT' && $state_arr[$state_deep] == 'CONTENT' ) {
 				$curr_str .= "#REDIRECT";
 				$i = $i + 8;
+				continue;
+			}
+
+			if ( $content[$i] == '|' && $state_arr[$state_deep] == 'CURLYBEGIN' ) {
+				array_pop( $state_arr );
+				$state_arr[] = 'TABLEBEGIN';
+				continue;
+			}
+
+			if ( $content[$i] == '|' && $content[$i+1] == '}' && $state_arr[$state_deep] == 'TABLEBEGIN' ) {
+				array_pop( $state_arr );
+				$state_deep--;
+
+				$translated_content .= "{|" . $this->translateTable( $curr_str ) . "|}";
+				$i++;
+				$curr_str = '';
 				continue;
 			}
 
