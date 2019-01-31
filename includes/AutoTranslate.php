@@ -65,8 +65,9 @@ class AutoTranslate {
 		if ( $line_type == "TABLE_START" ) {
 			return $table_line;
 		} else if ( $line_type == "CAPTION_START" ) {
-			if ( count( explode( "|", $table_line ) ) == 2 ) {
-				return "|+" . current( explode( "|", $table_line ) ) . "|" . $this->translateWikiText( end( explode( "|", $table_line ) ) );
+			$table_line_parts = explode( "|", $table_line );
+			if ( count( $table_line_parts ) == 2 ) {
+				return "|+" . current( $table_line_parts ) . "|" . $this->translateWikiText( end( $table_line_parts ) );
 			} else {
 				return "|+" . $this->translateWikiText( $table_line );
 			}
@@ -75,8 +76,9 @@ class AutoTranslate {
 		} else if ( $line_type == "HEADER_START" ) {
 			$headers = explode( "!!", $table_line );
 			foreach( $headers as &$header ) {
-				if ( count( explode( "|", $header ) ) == 2 ) {
-					$header = current( explode( "|", $header ) ) . "|" . $this->translateWikiText( end( explode( "|", $header ) ) );
+				$header_parts = explode( "|", $header );
+				if ( count( $header_parts ) == 2 ) {
+					$header = current( $header_parts ) . "|" . $this->translateWikiText( end( $header_parts ) );
 				} else {
 					$header = $this->translateWikiText( $header );
 				}
@@ -85,8 +87,9 @@ class AutoTranslate {
 		} else if ( $line_type == "DATA_CELL_START" ) {
 			$cells = explode( "||", $table_line );
 			foreach( $cells as &$cell ) {
-				if ( count( explode( "|", $cell ) ) == 2 ) {
-					$cell = current( explode( "|", $cell ) ) . "|" . $this->translateWikiText( end( explode( "|", $cell ) ) );
+				$cell_parts = explode( "|", $cell );
+				if ( count( $cell_parts ) == 2 ) {
+					$cell = current( $cell_parts ) . "|" . $this->translateWikiText( end( $cell_parts ) );
 				} else {
 					$cell = $this->translateWikiText( $cell );
 				}
