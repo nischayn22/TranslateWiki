@@ -16,6 +16,7 @@ class AutoTranslate {
 
 	private $translationCache = null;
 	private $translationCorrections = null;
+	private $linkTranslations = null;
 
 	private $translationFragments = array();
 
@@ -35,6 +36,9 @@ class AutoTranslate {
 		if ( $this->translationCorrections == null ) {
 			$this->translationCorrections = new TranslationCorrections( $this->translateTo );
 		}
+		if ( $this->linkTranslations == null ) {
+			$this->linkTranslations = new LinkTranslations( $this->translateTo );
+		}
 		$title = Revision::newFromPageId( $this->pageId )->getTitle();
 		return $this->translateText( $title->getFullText() );
 	}
@@ -47,6 +51,9 @@ class AutoTranslate {
 		}
 		if ( $this->translationCorrections == null ) {
 			$this->translationCorrections = new TranslationCorrections( $this->translateTo );
+		}
+		if ( $this->linkTranslations == null ) {
+			$this->linkTranslations = new LinkTranslations( $this->translateTo );
 		}
 		$revision = Revision::newFromPageId( $this->pageId );
 		$content = ContentHandler::getContentText( $revision->getContent( Revision::RAW ) );
@@ -132,7 +139,6 @@ class AutoTranslate {
 				}
 			}
 		}
-//		dieq( $tableContent, $translated_content );
 		return $translated_content;
 	}
 
@@ -255,6 +261,7 @@ class AutoTranslate {
 			}
 		}
 		$translated_string = $this->translationCorrections->applyCorrections( $translated_string );
+		$translated_string = $this->linkTranslations->applyTranslations( $translated_string );
 		$this->translationFragments[ md5( $rtrimmed ) ] = array( $this->postProcessFragment( $rtrimmed ), $translated_string );
 		return $ltrim . $translated_string . $rtrim;
 	}

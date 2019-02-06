@@ -227,7 +227,7 @@ class SpecialLinkTranslations extends QueryPage {
 	}
 
 	function getOrderFields() {
-		return [];
+		return ['count'];
 	}
 
 	function linkParameters() {

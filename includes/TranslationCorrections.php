@@ -17,8 +17,8 @@ class TranslationCorrections {
 			return;
 		}
 		$dbr = wfGetDB( DB_SLAVE );
-		$res = $dbr->select( 
-			TranslationCorrections::TABLE,
+		$res = $dbr->select(
+			self::TABLE,
 			[ 'id', 'original_str', 'corrected_str' ],
 			[ 'lang' => $this->target_lang ],
 			__METHOD__
