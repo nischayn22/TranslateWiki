@@ -189,7 +189,7 @@ class AutoTranslate {
 					}
 				}
 			} else if ( $type == "external_link" ) {
-				$new_element = $dom->createElement( 'PLACEHOLDER', "[$link $value]" );
+				$new_element = $dom->createElement( 'PLACEHOLDER', htmlspecialchars( "[$link $value]" ) );
 			} else if ( $type == "bolditalic" ) {
 				$new_element = $dom->createElement( 'PLACEHOLDER', "'''''$value'''''" );
 			} else if ( $type == "bold" ) {

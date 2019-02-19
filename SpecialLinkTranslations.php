@@ -131,11 +131,15 @@ class SpecialLinkTranslations extends QueryPage {
 			];
 			$htmlForm = HTMLForm::factory( 'ooui', $fields, $this->getContext() );
 			$htmlForm->addHiddenField( 'lang', $this->lang );
+			$htmlForm->addHiddenField( 'page_action', 'search' );
 			$htmlForm->setAction( $this->getTitle()->getFullUrl() . "/" . $subpage );
 			$htmlForm->setMethod( 'get' );
 			$htmlForm->prepareForm()->displayForm( false );
 
-			if ( !empty( $this->search_pattern ) ) {
+			if ( $page_action == "search" ) {
+				if ( empty( $this->search_pattern ) ) {
+					$this->search_pattern = "*";
+				}
 				$target2 = $this->search_pattern;
 				// Get protocol, default is http://
 				$protocol = 'http://';
@@ -266,7 +270,7 @@ class SpecialLinkTranslations extends QueryPage {
 		$externalLink = "--";
 		if( !empty( $result->translated_str ) ) {
 			$externalLink = Linker::makeExternalLink( $result->translated_str, $result->translated_str );
-			$action = "Update";
+			$action = "Edit";
 			$add_translation_url .= '&page_action=update_translation';
 		} else {
 			$add_translation_url .= '&page_action=save_translation';
